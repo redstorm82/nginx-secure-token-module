@@ -170,6 +170,23 @@ ngx_http_secure_token_url_state_machine(
 	ngx_int_t rc;
 	u_char* new_uri_path;
 	u_char ch;
+	u_char* buffer_start;
+	//felix add 20190402, deal with m3u8 file without http scheme{
+	static u_char scheme[] = "http://";
+	buffer_start = (*cur_pos);
+
+	if ((buffer_end - buffer_start) < sizeof(scheme))
+	{
+		ctx->state = STATE_URL_PATH;
+	}
+	else
+	{
+		if(memcmp(ctx->scheme, "http", 4) != 0)
+		{
+			ctx->state = STATE_URL_PATH;
+		}
+	}
+	//felix add 20190402, deal with m3u8 file without http scheme}
 
 	for (; (*cur_pos) < buffer_end; (*cur_pos)++)
 	{
@@ -207,6 +224,9 @@ ngx_http_secure_token_url_state_machine(
 				{
 					output->token_index = TOKEN_PREFIX_QUESTION;
 				}
+				ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+						"ngx_http_secure_token_url_state_machine:state %d,token_index:%d",
+						ctx->state, output->token_index);
 			}
 
 			ctx->last_url_char = ch;
@@ -463,9 +483,9 @@ ngx_http_secure_token_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
 				(u_char*)ctx + ctx->processor_context_offset, 
 				&output);
 
-			ngx_log_debug3(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-				"process: %d, %p-%p",
-				rc, copy_start, pos);
+			ngx_log_debug4(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+				"ngx_http_secure_token_body_filter process: %d, %p-%p,token_index:%d",
+				rc, copy_start, pos,output.token_index);
 
 			if (rc == NGX_ERROR) {
 				return rc;
