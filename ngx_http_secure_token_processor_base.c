@@ -108,13 +108,14 @@ static body_processor_t body_processors[] = {
 		ngx_http_secure_token_escape_xml,
 	},
 };
-
+//felix edit 20190612, we assume all segs in m3u8 have query string{
 // misc constants
 static ngx_str_t token_prefixes[TOKEN_PREFIX_COUNT] = {
 	ngx_string(""),
-	ngx_string("?"),
+	ngx_string("&"),
 	ngx_string("&"),
 };
+//felix edit 20190612, we assume all segs in m3u8 have query string{
 
 static u_char scheme_delimeter[] = "://";
 
