@@ -364,8 +364,11 @@ ngx_http_secure_token_set_expires(ngx_http_request_t *r, time_t expires_time, ng
 {
     size_t            len;
     time_t            max_age;
+    ngx_table_elt_t  *expires, *cc;
+#if (nginx_version < 1021000)
     ngx_uint_t        i;
-    ngx_table_elt_t  *expires, *cc, **ccp;
+    ngx_table_elt_t  **ccp;
+#endif
 
     expires = r->headers_out.expires;
 
@@ -377,10 +380,44 @@ ngx_http_secure_token_set_expires(ngx_http_request_t *r, time_t expires_time, ng
         }
 
         r->headers_out.expires = expires;
+#if (nginx_version >= 1021000)
+        expires->next = NULL;
+#endif
 
         expires->hash = 1;
         ngx_str_set(&expires->key, "Expires");
     }
+
+#if (nginx_version >= 1021000)
+
+    /* nginx 1.21 起 headers_out.cache_control 由 ngx_array_t 改为
+       ngx_table_elt_t *, 多值用 ->next 串联; 这里的写法与
+       ngx_http_headers_filter_module.c 里的 ngx_http_set_expires 保持一致 */
+    cc = r->headers_out.cache_control;
+
+    if (cc == NULL) {
+
+        cc = ngx_list_push(&r->headers_out.headers);
+        if (cc == NULL) {
+            return NGX_ERROR;
+        }
+
+        r->headers_out.cache_control = cc;
+        cc->next = NULL;
+
+        cc->hash = 1;
+        ngx_str_set(&cc->key, "Cache-Control");
+
+    } else {
+        for (cc = cc->next; cc; cc = cc->next) {
+            cc->hash = 0;
+        }
+
+        cc = r->headers_out.cache_control;
+        cc->next = NULL;
+    }
+
+#else
 
     ccp = r->headers_out.cache_control.elts;
 
@@ -414,6 +451,8 @@ ngx_http_secure_token_set_expires(ngx_http_request_t *r, time_t expires_time, ng
 
         cc = ccp[0];
     }
+
+#endif
 	
     if (expires_time == 0) {
 		ngx_str_set(&expires->value, "Sun, 19 Nov 2000 08:52:00 GMT");
